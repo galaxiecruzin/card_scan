@@ -17,76 +17,80 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import cv
 import scan_card
-
+from utils.run_match import run_match
 from elixir import session, setup_all
 import sqlalchemy
 from sqlalchemy import func
 from models import *
 import re
 
+
 def captures_to_db(captures, box_name):
-	#given an iterable of captures and a box name,
-	#save all the captured images to the database
-	starting_index = session.query(func.max(InvCard.box_index))\
-			.filter(InvCard.box==box_name).first()[0]
-	if starting_index is None:
-		starting_index = 0
+    # given an iterable of captures and a box name,
+    # save all the captured images to the database
+    starting_index = session.query(func.max(InvCard.box_index)) \
+        .filter(InvCard.box == box_name).first()[0]
+    if starting_index is None:
+        starting_index = 0
 
-	for i, img in enumerate(captures):
-		as_png = cv.EncodeImage(".png", img).tostring()
+    for i, img in enumerate(captures):
+        as_png = cv.EncodeImage(".png", img).tostring()
 
-		InvCard(
-				box = box_name,
-				box_index = starting_index + i,
-				scan_png = as_png,
-				recognition_status = "scanned",
-				inventory_status = "present")
+        InvCard(
+            box=box_name,
+            box_index=starting_index + i,
+            scan_png=as_png,
+            recognition_status="scanned",
+            inventory_status="present")
 
-	session.commit()
+    session.commit()
+
 
 def capture_box(cam, boxnum):
+    print "scanning %s" % boxnum
+    while True:  # retry loop
+        retry = False
+        captures = scan_card.watch_for_card(cam)
+        print "captured %d cards. is this correct?" % len(captures)
+        answer = raw_input()
+        print "got answer: ", answer
+        if re.search('[yc]', answer):
+            break  # finish the function
+        else:
+            while not re.match('[ra]', answer):
+                print "(r)etry scan? or (a)bort?"
+                answer = raw_input()
+            if re.search('r', answer):
+                continue
+            elif re.search('a', answer):
+                return  # abort the scan
+                # default will retry
 
-	print "scanning %s" % boxnum
-	while True: #retry loop
-		retry = False
-		captures = scan_card.watch_for_card(cam)
-		print "captured %d cards. is this correct?" % len(captures)
-		answer = raw_input()
-		print "got answer: ", answer
-		if re.search('[yc]',answer):
-			break #finish the function
-		else:
-			while not re.match('[ra]', answer):
-				print "(r)etry scan? or (a)bort?"
-				answer = raw_input()
-			if re.search('r',answer):
-				continue
-			elif re.search('a',answer):
-				return #abort the scan
-			#default will retry
-
-	captures_to_db(captures, boxnum)
-
+    captures_to_db(captures, boxnum)
 
 
-if __name__ == '__main__':
-	setup_all(True)
+def run_scan_setup(cam_index=0):
+    setup_all(True)
 
-	cam = cv.CreateCameraCapture(0)
-	scan_card.setup_windows()
+    cam = cv.CreateCameraCapture(cam_index)
+    scan_card.setup_windows()
 
-	#main loop
-	while True:
-		#for now, name the next box as the largest integer box name, +1
-		current_max_box = session.query(func.max(sqlalchemy.cast(InvCard.box, sqlalchemy.Integer))).first()[0]
-		if current_max_box is None:
-			#if there is no current box, just start at 1
-			next_box = 1
-		else:
-			next_box = current_max_box + 1
+    # main loop
+    run = True
+    while run:
+        # for now, name the next box as the largest integer box name, +1
+        current_max_box = session.query(func.max(sqlalchemy.cast(InvCard.box, sqlalchemy.Integer))).first()[0]
+        if current_max_box is None:
+            # if there is no current box, just start at 1
+            next_box = 1
+        else:
+            next_box = current_max_box + 1
 
-		print "box to scan[%02d]: " % next_box,
-		answer = raw_input().rstrip()
-		if answer != "":
-			next_box = answer
-		capture_box(cam, next_box)
+        print "box to scan[%02d]: " % next_box,
+        answer = ("%s" % raw_input().rstrip())
+        if answer != '' and answer != 'q':
+            next_box = answer
+            capture_box(cam, next_box)
+        if answer == 'q':
+            run = False
+            run_match()

@@ -24,15 +24,16 @@ import config
 
 import os
 
-if __name__ == '__main__':
-	setup_all(True)
 
-	sets = os.listdir(config.base_magic_set_dir)
-	base_dir = config.base_magic_set_dir
-	known = match_card.load_sets(base_dir, sets)
-	cache = match_card.GradientCache(base_dir)
-	print "all sets loaded!"
+def run_match():
+    setup_all(True)
 
-	cv.NamedWindow('debug')
-	cv.StartWindowThread()
-	match_card.match_db_cards(known, cache)
+    sets = os.listdir(config.base_magic_set_dir)
+    base_dir = config.base_magic_set_dir
+    known = match_card.load_sets(base_dir, sets)
+    cache = match_card.GradientCache(base_dir)
+    print "all sets loaded!"
+
+    cv.NamedWindow('debug')
+    cv.StartWindowThread()
+    match_card.match_db_cards(known, cache)
