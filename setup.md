@@ -10,9 +10,24 @@ sudo apt-get install -y vim git curl build-essential automake autoconf gcc \
  openssh-server python-dev python-pip cheese vlc zsh
 ```
 
-## Oh-My-Zsh
+## Oh-My-Zsh (optional)
 
 sh -c "$(curl -fsSL https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+
+
+## Card Scan
+
+```
+git clone https://github.com/YenTheFirst/card_scan.git
+cd card_scan
+pip install -r requirements.txt
+```
+
+## If installing globally install python-opencv package
+
+```
+sudo apt-get -y install python-opencv python-numpy libqt4-dev
+```
 
 ## PyENV
 
@@ -32,20 +47,6 @@ fi
 ```
 
 *Restart your terminal session*
-
-## Card Scan
-
-```
-git clone https://github.com/YenTheFirst/card_scan.git
-cd card_scan
-pip install -r requirements.txt
-```
-
-## If installing globally install python-opencv package
-
-```
-sudo apt-get -y install python-opencv python-numpy libqt4-dev
-```
 
 # Setup Python Virtual Environment
 
