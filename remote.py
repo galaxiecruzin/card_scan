@@ -1,14 +1,59 @@
 import os
+import sys
+from PySide import QtCore, QtGui
+from mainwindow import Ui_MainWindow
 from decimal import *
 import numpy as np
 import cv
 import cv2
+import imghdr
 from detect_card import detect_card, longest_lines
 from scan_card import get_card
+# Get entrypoint through which we control underlying Qt framework
 TEMPFILE = '/tmp/mytempfile.jpg'
 WINDOW = 'The Card'
 # CARD_IMAGES = '/Users/abarger/Cockatrice/pics/downloadedPics'
-CARD_IMAGES = '/Users/abarger/card_scan/phototest/camera'
+# CARD_IMAGES = '/Users/abarger/card_scan/phototest/'
+CARD_IMAGES = '/Users/abarger/Downloads/card-scans'
+BACKGROUND = '/Users/abarger/card_scan/phototest/greenscreen.jpg'
+
+
+class App():
+
+    def __init__(self):
+        self.qapp = QtGui.QApplication(sys.argv)
+        self.main = MainWindow()
+
+    def show(self):
+        self.main.show()
+
+    def shutdown(self):
+        sys.exit(self.qapp.exec_())
+
+
+class MainWindow(QtGui.QMainWindow):
+
+    def __init__(self, parent=None):
+        super(MainWindow, self).__init__(parent)
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+
+        # Set Image
+        myPixmap = QtGui.QPixmap('./phototest/ancient-stirrings.jpg')
+        myScaledPixmap = myPixmap.scaled(self.ui.preview.size(), QtCore.Qt.KeepAspectRatio)
+        self.ui.preview.setPixmap(myScaledPixmap)
+
+        # Set Status
+        self.ui.status.setText("Identified")
+
+        # Set Card Name
+        self.ui.card_name.setText("Ancient Stirrings")
+
+        # Load combo options for expansion
+        # self.ui.expansion
+
+        # Load combo options for conditions
+        # self.ui.condition
 
 
 class CvImage:
@@ -26,13 +71,15 @@ class CvImage:
         return "Image (%s, %s)" % (self.get_height(), self.get_width())
 
     def load_image(self, path):
-        print ("Loading image: %s" % path)
-        self.original = cv.LoadImage(path) # returns -> iplimage
-        self.img_ndarray = cv2.imread(path) # returns -> numpy.ndarray
-        self.img2 = cv2.imread(path, 0) # returns -> numpy.ndarray
-        self.size = cv.GetSize(self.original)
-        self.current = cv.CloneImage(self.original)
-        self.save_temp_file()
+        print ("Image type:%s" % imghdr.what(path))
+        if imghdr.what(path) == 'jpeg':
+            print ("Loading image: %s" % path)
+            self.original = cv.LoadImage(path) # returns -> iplimage
+            self.img_ndarray = cv2.imread(path) # returns -> numpy.ndarray
+            self.img2 = cv2.imread(path, 0) # returns -> numpy.ndarray
+            self.size = cv.GetSize(self.original)
+            self.current = cv.CloneImage(self.original)
+            self.save_temp_file()
         # cv.CvtColor(self.current, self.greyscale, cv.CV_RGB2GRAY)
 
     def flip_horizontal(self):
@@ -63,7 +110,7 @@ class CvImage:
 
     def get_greyscale(self):
         self.greyscale = cv.CreateImage(cv.GetSize(self.current), 8, 1)
-        cv.CvtColor(self.current , self.greyscale, cv.CV_RGB2GRAY)
+        cv.CvtColor(self.current, self.greyscale, cv.CV_RGB2GRAY)
         return self.greyscale
 
     def is_rightside_up(self):
@@ -80,7 +127,7 @@ class CvImage:
             if approx.size == 8:
                 # Ignore micro boxes
                 cnt_area = box_area(approx)
-                area_diff = cnt_area / img.get_area()
+                area_diff = cnt_area / self.get_area()
                 if Decimal(0.34) > area_diff > Decimal(0.05):
                     # Determine if contour is in the top half or bottom half
                     cnt_y = box_y(cnt)
@@ -133,11 +180,18 @@ def template_match(cv_image):
         print ("Show template match. method = %s, TL=%s BR=%s" % (meth, top_left, bottom_right))
         show_image(demo)
 
+# class MyDialog(QDialog):
+#     def __init__(self, parent=None):
+#         super(MyDialog, self).__init__(parent)
+
 
 def init():
-    cv.NamedWindow(WINDOW, flags=cv.CV_WINDOW_NORMAL)
-    cv.MoveWindow(WINDOW, 0, 0)
-    cv.ResizeWindow(WINDOW, 350, 500)
+    APP = QtGui.QApplication(sys.argv)
+    main = MainWindow()
+    return main
+    # cv.NamedWindow(WINDOW, flags=cv.CV_WINDOW_NORMAL)
+    # cv.MoveWindow(WINDOW, 0, 0)
+    # cv.ResizeWindow(WINDOW, 350, 500)
 
 
 def list_images():
@@ -166,34 +220,37 @@ def shutdown():
 
 def card_from_image(img):
     greyscale = img.get_greyscale()
-    base = cv.CloneImage(greyscale)
-    show_image(greyscale)
-    corners = detect_card(greyscale, base)
-    if corners is not None:
-        card = get_card(greyscale, corners)
-        show_image(card)
-        return card
+    current = img.get_current()
+    background = cv.LoadImage(BACKGROUND, iscolor=False)
+    if greyscale.height == background.height and greyscale.width == background.width:
+        corners = detect_card(greyscale, background)
+        if corners is not None:
+            card = get_card(current, corners)
+            show_image(card)
+            return card
+    return False
 
 
 if __name__ == "__main__":
     # initialize windows
-    init()
+    app = App()
+    app.show()
 
     # samples = ['./phototest/ancient-stirrings.jpg', './phototest/ancient-stirrings-copy.jpg']
-    samples = list_images()
-
-    for sample in samples:
-        img = CvImage()
-        img.load_image(sample)
-        show_image(img.current)
-        # greyscale_card = img.get_greyscale()
-        # show_image(greyscale_card)
-        if not img.is_rightside_up():
-            print ("flipping %s" % sample)
-            img.flip_horizontal()
-            show_image(img.current)
-        # # greyscale_card = card_from_image(img.get_current())
-        template_match(img)
+    # samples = list_images()
+    #
+    # for sample in samples:
+    #     img = CvImage()
+    #     img.load_image(sample)
+    #     if img.current is not None:
+    #         show_image(img.current)
+    #         if not img.is_rightside_up():
+    #             print ("flipping %s" % sample)
+    #             img.flip_horizontal()
+    #             show_image(img.current)
+    #         greyscale_card = card_from_image(img)
+    #         show_image(greyscale_card)
+            # template_match(img)
     '''
     # prompt for next card or quit
     answer = ''
@@ -205,7 +262,7 @@ if __name__ == "__main__":
             # get('http://192.168.0.111/current.jpg')
             pass
     '''
-    shutdown()
+    app.shutdown()
 
 '''
 flipping /Users/abarger/Cockatrice/pics/downloadedPics/ARC/A Display of My Dark Power.jpg

@@ -78,3 +78,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+## PySide
+pip install -U PySide
+
+export DYLD_LIBRARY_PATH=/Users/abarger/.pyenv/versions/cardscan2/lib/python2.7/site-packages/PySide
+
+pyside-uic ./ui/mainwindow.ui -o mainwindow.py
